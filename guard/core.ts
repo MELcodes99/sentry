@@ -89,7 +89,8 @@ export async function guardedSign(args: GuardArgs, paybox: PayboxLike = PayboxCl
   const base = {
     verdict: report.verdict, headline: report.headline, summary: report.summary,
     value_at_risk_usd: report.value_at_risk_usd ?? null, report_url: (report as any).report_url,
-    paid_usd: (paid as any)?.plan?.x402?.amount_usd,
+    paid_usd: (paid as any)?.plan?.x402?.amount_usd
+      ?? ((paid as any)?.response?.output?.value?.payment?.status === "succeeded" ? "0.01" : undefined),
   };
 
   if (args.checkOnly) return { decision: "checked", ...base };
