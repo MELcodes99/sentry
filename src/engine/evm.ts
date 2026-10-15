@@ -47,6 +47,7 @@ function chainIdOf(ctx: Ctx, fallback?: unknown): number | undefined {
 const fmtAmt = (v: bigint) => (v >= UNLIMITED ? "UNLIMITED" : v.toString());
 
 async function judgeSpender(ctx: Ctx, chainId: number | undefined, spender: string, amount: bigint | "all", what: string, gasless: boolean) {
+  if (amount === 0n) { ctx.act("(this sets the allowance to zero, which revokes access)"); return; }
   const name = evmName(spender);
   const unlimited = amount === "all" || amount >= UNLIMITED;
   const who = name ? `${name} (${short(spender)})` : `unrecognized address ${short(spender)}`;
