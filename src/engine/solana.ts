@@ -120,7 +120,7 @@ export async function analyzeSolana(ctx: Ctx) {
 
     const known = KNOWN_SOLANA[pid];
     ctx.act(`Call ${known ?? `unrecognized program ${short(pid)}`}`);
-    if (known && /Jupiter|Raydium|Orca|Meteora|Pump/.test(known)) kinds.add("swap");
+    if (known && !/Associated Token|Compute Budget|Memo|Lookup Table|Lighthouse|Stake Program/.test(known)) kinds.add("swap"); // a protocol call
     if (!known) {
       kinds.add("swap");
       ctx.add({ id: "unknown_program", severity: "medium", title: "Calls an unrecognized program", detail: `${short(pid)} isn't on Sentry's list of known Solana programs. Whatever it does runs with your signature attached.` });

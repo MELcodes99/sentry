@@ -13,6 +13,20 @@ export const KNOWN_EVM: Record<string, string> = {
   "0xdef1c0ded9bec7f1a1670819833240f027b25eff": "0x Exchange Proxy",
   "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae": "LI.FI Diamond",
   "0x0000000000000068f116a894984e2db1123eb395": "Seaport 1.6",
+  // Lending
+  "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2": "Aave V3 Pool (Ethereum)",
+  "0xa238dd80c259a72e81d7e4664a9801593f98d1c5": "Aave V3 Pool (Base)",
+  "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb": "Morpho Blue",
+  // DEXs and aggregators
+  "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43": "Aerodrome Router (Base)",
+  "0x9008d19f58aabd9ed0d60971565aa8510560ab41": "CoW Protocol Settlement",
+  "0xc92e8bdf79f0507f65a392b0ab4667716bfe0110": "CoW Protocol Vault Relayer",
+  "0xba12222222228d8ba445958a75a0704d566bf2c8": "Balancer Vault",
+  "0xc36442b4a4522e871399cd717abdd847ab11fe88": "Uniswap V3 Positions (NFT manager)",
+  // Bridges
+  "0x09aea4b2242abc8bb4bb78d537a67a245a7bec64": "Across SpokePool (Base)",
+  // NFT marketplaces
+  "0x1e0049783f008a0085193e00003d00cd54003c71": "OpenSea Conduit",
 };
 
 // EIP-7702 delegation targets we recognize. Anything else is treated as
@@ -35,6 +49,13 @@ export const KNOWN_SOLANA: Record<string, string> = {
   whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc: "Orca Whirlpools",
   LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo: "Meteora DLMM",
   "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P": "Pump.fun",
+  CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C: "Raydium CPMM",
+  PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY: "Phoenix",
+  KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD: "Kamino Lending",
+  dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH: "Drift",
+  metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s: "Metaplex Token Metadata",
+  L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95: "Lighthouse (wallet guard)",
+  AddressLookupTab1e1111111111111111111111111: "Address Lookup Table",
 };
 
 export const TOKENS: Record<string, string> = {
