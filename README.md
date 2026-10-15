@@ -30,6 +30,35 @@ The task-mismatch check is what makes Sentry agent-native: the agent tells Sentr
 for (`expect`), and Sentry flags intents that do something else. That is exactly what a prompt-injected or
 phished agent looks like.
 
+## Dollar value at risk
+
+When Sentry blocks or warns, it reads the signing wallet's **live balance** of whatever is in play
+(the token being approved, the account being reassigned, the SOL being sent) and prices it with
+DefiLlama. The verdict leads with the number: **"$2,340.00 at risk"**.
+
+Try any attack against a real wallet: `GET /demo/airdrop-permit?evm=0x…` or
+`/demo/sol-setauthority?sol=…`, or fill in "your wallet" in the playground.
+
+## Sentry Guard: agents can't forget to check
+
+`guard/` wraps PayBox signing so every signature is checked first. ALLOW signs, WARN stops for the
+user, BLOCK refuses. It uses the PayBox login and signing key on your machine.
+
+```bash
+npx @paybox-sh/sdk login && npx @paybox-sh/sdk connect     # once
+npm run guard -- sign --credential <wallet-id> --demo airdrop-permit
+npm run guard -- sign --credential <wallet-id> --intent @intent.json --task "Swap 250 USDC for ETH" --action swap
+```
+
+As an MCP server, so an agent in Claude Desktop, Cursor or Claude Code gets `guarded_sign` instead
+of raw signing:
+
+```json
+"sentry-guard": { "command": "npx", "args": ["tsx", "/path/to/sentry/guard/mcp.ts"] }
+```
+
+Tools: `list_wallets`, `guarded_sign`, `sentry_check`.
+
 ## API
 
 `POST /check` (x402, $0.01) · body mirrors PayBox's `request_wallet_sign` intent:
@@ -59,7 +88,7 @@ Other routes: `GET /` landing + playground · `POST /api/try` free playground ch
 
 ```bash
 npm install
-npm run smoke   # runs all six demo scenarios through the engine
+npm test        # attacks blocked, 13 everyday actions allowed, valuation, guard decisions
 npm run dev     # http://localhost:8787
 ```
 
@@ -75,7 +104,7 @@ For mainnet USDC on Base, point `FACILITATOR_URL` at a mainnet facilitator (e.g.
 
 ## Roadmap
 
-- Balance-change simulation (EVM `eth_simulateV1`, Solana `simulateTransaction`) with USD exposure
+- Full balance-change simulation (EVM `eth_simulateV1`, Solana `simulateTransaction`)
 - Token-reputation and contract-age signals
-- PayBox plugin tool `sentry.check`, so any plugin money tool is screened automatically
+- Native PayBox plugin, so every PayBox signature is screened without a wrapper
 - Policy packs: per-user allowlists and spend rules

@@ -4,16 +4,20 @@
   "description": "Pre-sign security for AI agent wallets. Your agent signs. Sentry decides.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "tsx scripts/smoke.ts && tsx scripts/legit.ts && tsx scripts/value-test.ts && tsx scripts/guard-test.ts",
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "guard": "tsx guard/cli.ts",
+    "guard:mcp": "tsx guard/mcp.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@hono/node-server": "^2.1.5",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@paybox-sh/sdk": "^2.2.0",
     "@solana/web3.js": "^1.99.0",
     "@x402/core": "^2.28.0",
     "@x402/evm": "^2.28.0",
