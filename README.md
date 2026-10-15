@@ -2,9 +2,103 @@
 
 **Your agent signs. Sentry decides.**
 
-Pre-sign security for AI agent wallets, built for the PayBox marketplace (MoonPay Hackathons, Chapter 1).
-Before an agent signs anything through PayBox, it pays Sentry one cent over x402 to read the exact intent the
-way an auditor would, and gets back **ALLOW / WARN / BLOCK** with a reason a human can read.
+Pre-sign security for AI agent wallets, built for the [PayBox](https://paybox.sh) marketplace
+(MoonPay Hackathons, Chapter 1).
+
+AI agents can now sign transactions for you, which means they can be tricked into signing a wallet
+drainer. Before an agent signs anything, it pays Sentry **$0.01** (USDC on Base or Solana, over
+x402). Sentry reads the exact transaction the way a security auditor would and answers
+**ALLOW**, **WARN** or **BLOCK**, with the reason in plain English and **how many dollars are at
+risk** in the signing wallet.
+
+**Live:** https://sentry-9lxi.onrender.com
+
+---
+
+## How to use Sentry
+
+There are four ways in, from easiest to most powerful.
+
+### 1. In your browser (free, nothing to install)
+
+1. Open https://sentry-9lxi.onrender.com and scroll to **Try to fool it**.
+2. Optional: paste your wallet address into **Your EVM wallet** or **Your Solana wallet** to see what
+   each attack would cost *you*.
+3. Click an attack (or a legit action), then **Run Sentry**.
+4. You get a verdict page with the reason, the findings and the dollars at risk. Share it with the
+   **Share on X** button.
+
+### 2. Let your PayBox agent pay for a real check (about 3 minutes)
+
+You need [Node.js](https://nodejs.org) 20+ and a [PayBox](https://app.paybox.sh) account with a
+little USDC on Base or Solana. In your terminal:
+
+```bash
+# one-time setup
+npx @paybox-sh/sdk login          # approve in the browser page that opens
+npx @paybox-sh/sdk connect        # open the link, pick the row with the same 8 emoji
+npx @paybox-sh/sdk credentials    # copy the id of evm-default (Base) or sol-default (Solana)
+
+# download a test: a fake "claim your airdrop" scam aimed at your own wallet
+curl -o sentry-check.json "https://sentry-9lxi.onrender.com/examples/airdrop-permit.json?evm=YOUR_BASE_ADDRESS"
+# (Solana: .../examples/sol-setauthority.json?sol=YOUR_SOLANA_ADDRESS)
+
+# your agent pays Sentry $0.01 and gets the verdict
+npx @paybox-sh/sdk use-service --credential YOUR_WALLET_ID \
+  --url https://sentry-9lxi.onrender.com/check --method POST --body @sentry-check.json --wait
+```
+
+You'll see `"verdict":"BLOCK"`, the dollars that scam would have taken, and a `report_url`.
+
+Any PayBox agent (Claude, ChatGPT, Grok…) can do the same with the `use_service` tool:
+
+```
+use_service({ credential_id, url: "https://sentry-9lxi.onrender.com/check", method: "POST", body })
+```
+
+### 3. Sentry Guard: check every signature automatically (CLI)
+
+The Guard wraps PayBox signing: it pays Sentry first, then **ALLOW signs, WARN stops for you,
+BLOCK refuses**. Your agent can't forget to check. Do the one-time setup from step 2 first, then:
+
+```bash
+git clone https://github.com/MELcodes99/sentry.git
+cd sentry
+npm install
+
+# try it against your own wallet
+npm run guard -- sign --credential YOUR_EVM_WALLET_ID --demo airdrop-permit     # BLOCKED, nothing signed
+npm run guard -- sign --credential YOUR_SOL_WALLET_ID --demo sol-setauthority   # BLOCKED, nothing signed
+npm run guard -- sign --credential YOUR_EVM_WALLET_ID --demo safe-login         # ALLOWED and SIGNED
+
+# real use: pass the exact intent your agent wants to sign, plus what you asked it to do
+npm run guard -- sign --credential YOUR_WALLET_ID --intent @intent.json \
+  --task "Swap 250 USDC for ETH" --action swap
+```
+
+Each check costs $0.01. Run `npm run guard` with no arguments for every option.
+
+### 4. Sentry Guard for AI agents (MCP server)
+
+Give an agent in Claude Desktop, Cursor or Claude Code a `guarded_sign` tool instead of raw signing.
+After steps 2 and 3, add this to your MCP config (Claude Desktop: **Settings → Developer → Edit
+Config**), replacing the path with where you cloned Sentry:
+
+```json
+{
+  "mcpServers": {
+    "sentry-guard": {
+      "command": "/bin/zsh",
+      "args": ["-lc", "cd ~/sentry && npx tsx guard/mcp.ts"]
+    }
+  }
+}
+```
+
+Restart the app. The agent gets three tools: `list_wallets`, `guarded_sign` and `sentry_check`.
+For the strongest protection, give the agent Sentry Guard *instead of* direct PayBox signing.
+
+---
 
 ## What it catches
 
@@ -26,9 +120,14 @@ way an auditor would, and gets back **ALLOW / WARN / BLOCK** with a reason a hum
 | Both | Address poisoning (lookalike of a saved address) | `address_poisoning` |
 | Both | **Task mismatch**: agent asked to "claim an airdrop" but is signing an approval | `task_mismatch` |
 
-The task-mismatch check is what makes Sentry agent-native: the agent tells Sentry what the user actually asked
-for (`expect`), and Sentry flags intents that do something else. That is exactly what a prompt-injected or
-phished agent looks like.
+The task-mismatch check is what makes Sentry agent-native: the agent tells Sentry what the user
+actually asked for (`expect`), and Sentry flags intents that do something else. That is exactly what
+a prompt-injected or phished agent looks like.
+
+Legit activity passes: `scripts/legit.ts` runs 13 everyday actions (logins, transfers, bounded
+approvals, Uniswap and Jupiter swaps, revokes) and none are blocked. Recognized protocols include
+Uniswap, 1inch, 0x, LI.FI, CoW, Balancer, Aerodrome, Aave, Morpho, Across, OpenSea, Jupiter,
+Raydium, Orca, Meteora, Phoenix, Kamino, Drift and Metaplex.
 
 ## Dollar value at risk
 
@@ -36,32 +135,9 @@ When Sentry blocks or warns, it reads the signing wallet's **live balance** of w
 (the token being approved, the account being reassigned, the SOL being sent) and prices it with
 DefiLlama. The verdict leads with the number: **"$2,340.00 at risk"**.
 
-Try any attack against a real wallet: `GET /demo/airdrop-permit?evm=0x…` or
-`/demo/sol-setauthority?sol=…`, or fill in "your wallet" in the playground.
+## API reference
 
-## Sentry Guard: agents can't forget to check
-
-`guard/` wraps PayBox signing so every signature is checked first. ALLOW signs, WARN stops for the
-user, BLOCK refuses. It uses the PayBox login and signing key on your machine.
-
-```bash
-npx @paybox-sh/sdk login && npx @paybox-sh/sdk connect     # once
-npm run guard -- sign --credential <wallet-id> --demo airdrop-permit
-npm run guard -- sign --credential <wallet-id> --intent @intent.json --task "Swap 250 USDC for ETH" --action swap
-```
-
-As an MCP server, so an agent in Claude Desktop, Cursor or Claude Code gets `guarded_sign` instead
-of raw signing:
-
-```json
-"sentry-guard": { "command": "npx", "args": ["tsx", "/path/to/sentry/guard/mcp.ts"] }
-```
-
-Tools: `list_wallets`, `guarded_sign`, `sentry_check`.
-
-## API
-
-`POST /check` (x402, $0.01) · body mirrors PayBox's `request_wallet_sign` intent:
+`POST /check` (x402, $0.01). The body mirrors PayBox's `request_wallet_sign` intent:
 
 ```json
 {
@@ -73,18 +149,28 @@ Tools: `list_wallets`, `guarded_sign`, `sentry_check`.
 }
 ```
 
-Response: `verdict`, `risk_score`, `headline`, `summary`, `action`, `at_risk`, `findings[]`, `report_url`.
+`intent.op` is one of `message`, `typedData`, `transaction`, `authorization`, `solanaMessage`,
+`solanaTransaction`, `raw`. `expect.action` is one of `swap`, `transfer`, `approve`, `login`,
+`mint`, `bridge`, `other`.
 
-From a PayBox agent:
+Response: `verdict`, `risk_score`, `headline`, `summary`, `action`, `at_risk`,
+`value_at_risk_usd`, `value_items`, `findings[]`, `report_url`.
 
-```
-use_service({ credential_id, url: "https://<host>/check", method: "POST", body })
-```
+| Route | What it does |
+|---|---|
+| `GET /` | Landing page and playground |
+| `POST /check` | Paid check for agents (x402) |
+| `POST /api/try` | Free playground check (20 per minute per IP) |
+| `GET /examples/<name>.json?evm=…&sol=…` | Ready-to-send test requests aimed at a wallet |
+| `GET /demo/<name>?evm=…&sol=…` | Runs a test and opens its verdict page |
+| `GET /r/:id`, `/r/:id.json` | Shareable verdict page, raw report |
+| `GET /llms.txt` | Instructions for agents |
+| `GET /health` | Status |
 
-Other routes: `GET /` landing + playground · `POST /api/try` free playground check (20/min/IP) ·
-`GET /r/:id` shareable verdict page · `GET /r/:id.json` · `GET /llms.txt` agent instructions · `GET /health`.
+Test names: `airdrop-permit`, `7702-upgrade`, `sol-setauthority`, `sol-poison` (attacks);
+`safe-login`, `sol-login`, `uniswap-approve`, `sol-friend` (legit).
 
-## Run
+## Run it yourself
 
 ```bash
 npm install
@@ -92,15 +178,16 @@ npm test        # attacks blocked, 13 everyday actions allowed, valuation, guard
 npm run dev     # http://localhost:8787
 ```
 
-Without `PAY_TO_EVM` / `PAY_TO_SOL`, `/check` runs free (dev mode). See `.env.example` for x402 settings.
-For mainnet USDC on Base, point `FACILITATOR_URL` at a mainnet facilitator (e.g. Coinbase CDP) and set
-`X402_EVM_NETWORK=eip155:8453`.
+Without `PAY_TO_EVM` / `PAY_TO_SOL`, `/check` runs free (dev mode). See `.env.example` for x402
+settings. The live deployment uses the PayAI facilitator (`https://facilitator.payai.network`) on
+Base (`eip155:8453`) and Solana mainnet.
 
-## Deploy (Railway)
+### Deploy (Render)
 
-1. Push to GitHub, "New Project → Deploy from repo".
-2. Set `PUBLIC_URL`, `PAY_TO_EVM` (and/or `PAY_TO_SOL`), network and facilitator vars.
-3. Start command: `npm start`.
+1. New **Web Service** from this repo. Build `npm install`, start `npm start`.
+2. Set `PUBLIC_URL`, `PAY_TO_EVM` and/or `PAY_TO_SOL`, `X402_EVM_NETWORK`, `X402_SVM_NETWORK`
+   and `FACILITATOR_URL`.
+3. On the free tier, ping `/health` every 10 minutes (e.g. cron-job.org) so it never sleeps.
 
 ## Roadmap
 
