@@ -10,6 +10,7 @@ export class Ctx {
   atRisk: string[] = [];
   constructor(public req: CheckRequest) {}
   add(f: Finding) {
+    f.detail = f.detail.charAt(0).toUpperCase() + f.detail.slice(1);
     if (!this.findings.some((x) => x.id === f.id && x.detail === f.detail)) this.findings.push(f);
   }
   act(s: string) { this.actions.push(s); }
