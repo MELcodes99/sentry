@@ -93,7 +93,7 @@ export async function priceExposures(list: Exposure[]): Promise<{ total: number 
     const q = p[r.key]; if (!q?.price) continue;
     const decimals = r.decimals ?? q.decimals; if (decimals === undefined) continue;
     const usd = (Number(r.raw) / 10 ** decimals) * q.price;
-    items.push({ label: q.symbol ?? r.fallbackSymbol, amount: fmt(r.raw, decimals), usd: Math.round(usd * 100) / 100 });
+    items.push({ label: (q.symbol ?? r.fallbackSymbol).replace(/^[a-z0-9]{2,6}$/, (s) => s.toUpperCase()), amount: fmt(r.raw, decimals), usd: Math.round(usd * 100) / 100 });
   }
   if (!items.length) return { total: null, items: [] };
   return { total: Math.round(items.reduce((s, i) => s + i.usd, 0) * 100) / 100, items };
