@@ -20,14 +20,19 @@ From `credentials`, copy the `id` of your `evm-default` (Base) or `sol-default` 
 
 ## 2. Run one paid check
 
-Base wallet:
+Base wallet (put your Base address after `evm=` to see what the attack would cost you):
 
 ```bash
-curl -s https://sentry-9lxi.onrender.com/api/examples | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>process.stdout.write(JSON.stringify(JSON.parse(d)[0].req)))' > sentry-check.json
+curl -o sentry-check.json "https://sentry-9lxi.onrender.com/examples/airdrop-permit.json?evm=YOUR_BASE_ADDRESS"
 npx @paybox-sh/sdk use-service --credential YOUR_WALLET_ID --url https://sentry-9lxi.onrender.com/check --method POST --body @sentry-check.json --wait
 ```
 
-Solana wallet: same commands, use your `sol-default` id. PayBox picks the Solana payment option.
+Solana wallet:
+
+```bash
+curl -o sentry-check.json "https://sentry-9lxi.onrender.com/examples/sol-setauthority.json?sol=YOUR_SOLANA_ADDRESS"
+npx @paybox-sh/sdk use-service --credential YOUR_WALLET_ID --url https://sentry-9lxi.onrender.com/check --method POST --body @sentry-check.json --wait
+```
 
 You should see `"verdict":"BLOCK"` and a `report_url` you can open. That check was a fake
 "claim your airdrop" signature that would have handed a drainer all your USDC.

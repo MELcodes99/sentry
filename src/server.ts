@@ -93,6 +93,11 @@ app.get("/r/:id", (c) => {
   const r = load(c.req.param("id"));
   return r ? c.html(verdictPage(r, BASE)) : c.html(notFound(), 404);
 });
+// Ready-to-send request bodies: curl -o check.json https://<host>/examples/airdrop-permit.json?evm=0x...
+app.get("/examples/:file{[a-z0-9-]+\\.json}", (c) => {
+  let ex; try { ex = examples(wallets(c)).find((e) => e.key === c.req.param("file").replace(/\.json$/, "")); } catch { ex = undefined; }
+  return ex ? c.json(ex.req) : c.json({ error: "not found", try: examples().map((e) => `/examples/${e.key}.json`) }, 404);
+});
 app.get("/api/examples", (c) => { try { return c.json(examples(wallets(c))); } catch { return c.json({ error: "Invalid address" }, 400); } });
 app.get("/health", (c) => c.json({ ok: true, engine: ENGINE, paid, ...stats() }));
 app.get("/llms.txt", (c) => c.text(`# Sentry
