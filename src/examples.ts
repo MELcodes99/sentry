@@ -65,7 +65,7 @@ export function examples(opts: { evm?: string; sol?: string } = {}): Example[] {
       key: "7702-upgrade", tone: "bad", label: "“Upgrade your wallet” (EIP-7702)",
       story: "A page offers a free smart-wallet upgrade. It's a delegation of the whole account to unverified code, on every chain.",
       req: {
-        chain: "eip155:1", from: ME,
+        chain: "eip155:8453", from: ME,
         expect: { action: "swap", description: "Swap 0.1 ETH for USDC" },
         intent: { op: "authorization", authorization: { chainId: 0, address: DRAINER_EVM, nonce: 3 } },
       },
