@@ -24,8 +24,8 @@ function usage(): never {
   --credential <id>   PayBox wallet that signs (see: npx @paybox-sh/sdk credentials)
   --intent <json|@file>  what to sign, in PayBox request_wallet_sign shape
   --demo <name>       or run a built-in scenario against this wallet:
-                      airdrop-permit, 7702-upgrade, uniswap-approve (EVM wallet)
-                      sol-setauthority, sol-poison, sol-friend (Solana wallet)
+                      attacks: airdrop-permit, 7702-upgrade (EVM), sol-setauthority, sol-poison (Solana)
+                      safe, actually signed: safe-login (EVM), sol-login (Solana)
   --task "<text>"     what the user actually asked for
   --action <a>        swap | transfer | approve | login | mint | bridge | other
   --recipient <addr>  expected recipient, if any
@@ -54,7 +54,7 @@ function print(r: GuardResult) {
   if (r.report_url) console.log(`\n  Report: ${r.report_url}`);
   if (r.paid_usd) console.log(`  ${C.dim}Paid Sentry $${r.paid_usd} via PayBox (x402)${C.off}`);
   if (r.decision === "signed") console.log(`\n  Signature: ${JSON.stringify(r.signature)}`);
-  if (r.decision === "sign_failed") console.log(`\n  PayBox status: ${r.sign_status} ${r.sign_error ?? ""}`);
+  if (r.decision === "sign_failed") console.log(`\n  Sentry allowed it, but PayBox did not sign: ${r.sign_error ?? r.sign_status}`);
   console.log();
 }
 

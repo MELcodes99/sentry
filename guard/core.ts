@@ -98,7 +98,13 @@ export async function guardedSign(args: GuardArgs, paybox: PayboxLike = PayboxCl
   if (report.verdict === "WARN" && !args.allowWarn) return { decision: "needs_user", ...base };
 
   // 2. Safe: sign through PayBox. The server still enforces the wallet's grants and approvals.
-  const signed: any = await paybox.requestWalletSign({ credentialId: args.credentialId, intent: intent as any }, { waitForApproval: true });
+  let signed: any;
+  try {
+    signed = await paybox.requestWalletSign({ credentialId: args.credentialId, intent: intent as any }, { waitForApproval: true });
+  } catch (e: any) {
+    // Sentry approved it, but PayBox could not sign (e.g. a transaction without gas/nonce).
+    return { decision: "sign_failed", ...base, sign_status: "error", sign_error: e?.message ?? String(e) };
+  }
   const response = signed?.response ?? signed;
   const ok = response?.status === "success";
   return {

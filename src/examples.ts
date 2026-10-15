@@ -95,6 +95,24 @@ export function examples(opts: { evm?: string; sol?: string } = {}): Example[] {
       },
     },
     {
+      key: "safe-login", tone: "good", label: "Sign in to Uniswap",
+      story: "The agent was asked to log in to Uniswap. A normal Sign-In with Ethereum message: nothing moves.",
+      req: {
+        chain: "eip155:8453", from: ME,
+        expect: { action: "login", description: "Log in to Uniswap" },
+        intent: { op: "message", message: `app.uniswap.org wants you to sign in with your Ethereum account:\n${ME}\n\nSign in to Uniswap.\n\nURI: https://app.uniswap.org\nVersion: 1\nChain ID: 8453\nNonce: ${Math.random().toString(36).slice(2, 10)}\nIssued At: ${new Date().toISOString()}` },
+      },
+    },
+    {
+      key: "sol-login", tone: "good", label: "Sign in to Jupiter",
+      story: "The agent was asked to log in to Jupiter on Solana. A plain sign-in message: nothing moves.",
+      req: {
+        chain: "solana:mainnet", from: SME.toBase58(),
+        expect: { action: "login", description: "Log in to Jupiter" },
+        intent: { op: "solanaMessage", address: SME.toBase58(), message: `Sign in to jup.ag\nWallet: ${SME.toBase58()}\nNonce: ${Math.random().toString(36).slice(2, 10)}` },
+      },
+    },
+    {
       key: "uniswap-approve", tone: "good", label: "Exact approval to Uniswap",
       story: "The agent approves exactly 250 USDC to Permit2 before a swap. Bounded amount, known protocol.",
       req: {

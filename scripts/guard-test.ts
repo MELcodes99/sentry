@@ -32,7 +32,16 @@ await expectRun("Solana SetAuthority", ex["sol-setauthority"], "blocked", 0);
 await expectRun("poisoned address", ex["sol-poison"], "blocked", 0);
 await expectRun("exact Uniswap approval", ex["uniswap-approve"], "signed", 1);
 await expectRun("pay a saved friend", ex["sol-friend"], "signed", 1);
+await expectRun("demo: safe SIWE login", ex["safe-login"], "signed", 1);
+await expectRun("demo: Solana sign-in", ex["sol-login"], "signed", 1);
 await expectRun("plain login message", { intent: { op: "message", message: "Sign in to my app" }, expect: { action: "login" } }, "signed", 1);
+{ // PayBox refusing to sign still reports Sentry's verdict
+  const { pb } = fakePaybox();
+  pb.requestWalletSign = async () => { throw new Error("transaction is missing gas"); };
+  const r = await guardedSign({ credentialId: "w1", intent: ex["uniswap-approve"].intent, expect: ex["uniswap-approve"].expect, chain: "eip155:8453" }, pb);
+  const ok = r.decision === "sign_failed" && r.verdict === "ALLOW" && /missing gas/.test(r.sign_error ?? ""); if (!ok) fails++;
+  console.log(`${ok ? "PASS" : "FAIL"}  ${"PayBox refuses to sign".padEnd(34)} -> ${r.decision} (${r.verdict})`);
+}
 { // demo mode aims the scenario at the signing wallet
   const { pb, signed } = fakePaybox();
   const r = await guardedSign({ credentialId: "w1", demo: "airdrop-permit" }, pb);
