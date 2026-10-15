@@ -35,6 +35,9 @@ footer{border-top:1px solid var(--line);padding:28px 0 50px;color:var(--dim);fon
 /* verdict */
 .v{padding:64px 0 24px}.v .word{font:700 clamp(64px,13vw,150px)/.85 "Inter Tight",sans-serif;letter-spacing:-.04em;margin:0}
 .v.BLOCK .word{color:var(--block)}.v.WARN .word{color:var(--warn)}.v.ALLOW .word{color:var(--allow)}
+.money{font:700 clamp(30px,5vw,52px)/1 "Inter Tight",sans-serif;letter-spacing:-.02em;margin:18px 0 0}.money small{display:block;font-size:13px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-top:8px}
+.wallets{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px}.wallets input{background:#050607;color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:11px 12px;font:13px "JetBrains Mono",monospace;width:100%}.wallets label{font-size:12px;color:var(--dim);display:block;margin-bottom:5px;letter-spacing:.06em}
+@media(max-width:720px){.wallets{grid-template-columns:1fr}}
 .v h1{font-size:clamp(30px,4.5vw,46px);line-height:1.08;margin:22px 0 14px;max-width:820px}.v .sum{color:var(--dim);font-size:18px;max-width:760px;overflow-wrap:anywhere}
 .meter{display:flex;align-items:center;gap:12px;margin:26px 0 0;font-size:13px;color:var(--dim)}.meter .bar{flex:0 0 220px;height:6px;background:var(--line);border-radius:3px;overflow:hidden}.meter .bar i{display:block;height:100%}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:22px;margin-bottom:14px}
@@ -80,6 +83,7 @@ export function landing(examples: Example[], base: string, price: string, stats:
 <section id="try">
   <h2>Try to fool it.</h2>
   <p class="sub">Pick a real attack pattern, or paste any intent your agent would sign. ${stats.checks ? `${stats.checks} checks run, ${stats.blocked} blocked.` : ""}</p>
+  <div class="wallets"><div><label>YOUR EVM WALLET (optional)</label><input id="wevm" placeholder="0x… see what each attack would cost you" spellcheck="false"></div><div><label>YOUR SOLANA WALLET (optional)</label><input id="wsol" placeholder="Base58 address" spellcheck="false"></div></div>
   <div class="ex">${examples.map((e) => `<button data-k="${e.key}"><span class="tag ${e.tone}">${e.tone === "bad" ? "attack" : "legit"}</span><b>${esc(e.label)}</b><small>${esc(e.story)}</small></button>`).join("")}</div>
   <textarea id="in" spellcheck="false" placeholder='{"chain":"eip155:8453","intent":{"op":"typedData","typedData":{...}},"expect":{"action":"swap"}}'></textarea>
   <div class="go"><button class="btn" id="run">Run Sentry</button><span id="err"></span></div>
@@ -114,7 +118,7 @@ export function landing(examples: Example[], base: string, price: string, stats:
 </section>
 <script>
 const EX=${exJson};const ta=document.getElementById('in'),err=document.getElementById('err');
-document.querySelectorAll('.ex button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.ex button').forEach(x=>x.classList.remove('on'));b.classList.add('on');ta.value=JSON.stringify(EX[b.dataset.k],null,2);});
+document.querySelectorAll('.ex button').forEach(b=>b.onclick=async()=>{const ev=document.getElementById('wevm').value.trim(),sv=document.getElementById('wsol').value.trim();if(ev||sv){try{const q=new URLSearchParams();if(ev)q.set('evm',ev);if(sv)q.set('sol',sv);const r=await fetch('/api/examples?'+q);const j=await r.json();if(Array.isArray(j))j.forEach(x=>EX[x.key]=x.req);else{err.textContent='That wallet address looks invalid.';return}}catch{}}document.querySelectorAll('.ex button').forEach(x=>x.classList.remove('on'));b.classList.add('on');ta.value=JSON.stringify(EX[b.dataset.k],null,2);});
 document.getElementById('run').onclick=async()=>{err.textContent='';let body;try{body=JSON.parse(ta.value)}catch{err.textContent='That isn\\'t valid JSON.';return}
 const btn=document.getElementById('run');btn.textContent='Reading…';
 try{const r=await fetch('/api/try',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw new Error(j.error||'Check failed');location.href='/r/'+j.id}catch(e){err.textContent=e.message;btn.textContent='Run Sentry'}};
@@ -133,6 +137,7 @@ export function verdictPage(r: Report, base: string) {
 <div class="v ${r.verdict}">
   <div class="kicker">Sentry verdict · ${esc(new Date(r.created_at).toUTCString())}</div>
   <p class="word">${word}</p>
+  ${r.value_at_risk_usd && r.verdict !== "ALLOW" ? `<p class="money" style="color:${color}">$${r.value_at_risk_usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} at risk<small>${r.value_items.map((i) => `${esc(i.amount)} ${esc(i.label)}`).join(" · ")} · live balance of the signing wallet</small></p>` : ""}
   <h1>${esc(r.headline)}</h1>
   <p class="sum">${esc(r.summary)}</p>
   <div class="meter"><span>Risk</span><div class="bar"><i style="width:${r.risk_score}%;background:${color}"></i></div><span class="mono">${r.risk_score}/100</span></div>

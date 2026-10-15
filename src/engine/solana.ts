@@ -59,12 +59,14 @@ export async function analyzeSolana(ctx: Ctx) {
         if (acc(0) === signer) lamportsOut += lamports;
         ctx.act(`Send ${Number(lamports) / 1e9} SOL from ${short(acc(0))} to ${short(acc(1))}`);
         ctx.risk(`${Number(lamports) / 1e9} SOL`);
+        ctx.expose({ kind: "sol", owner: acc(0), lamports });
         checkRecipient(ctx, acc(1)); kinds.add("transfer");
       } else if (op === 1) {
         const owner = new PublicKey(data.slice(4, 36)).toBase58();
         ctx.act(`Reassign account ${short(acc(0))} to program ${name(owner)}`);
         if (acc(0) === signer) {
           ctx.risk("Your entire wallet, permanently");
+          ctx.expose({ kind: "sol", owner: signer, lamports: "all" });
           ctx.add({ id: "wallet_reassign", severity: "critical", title: "Hands your wallet to another program", detail: `System Assign makes ${name(owner)} the owner of your wallet account. After this, that program controls every lamport and you can't sign it back. This is the owner-reassign drainer.` });
         }
         kinds.add("delegate");
@@ -88,6 +90,7 @@ export async function analyzeSolana(ctx: Ctx) {
         const dest = op === 3 ? acc(1) : acc(2);
         ctx.act(`Transfer ${amt} base units of a token from ${short(acc(0))} to ${short(dest)}`);
         ctx.risk(`${amt} base units of token account ${short(acc(0))}`);
+        ctx.expose({ kind: "spl-account", account: acc(0), amount: amt });
         checkRecipient(ctx, dest); kinds.add("transfer");
       } else if (op === 4 || op === 13) {
         const amt = u64(data, 1);
@@ -95,6 +98,7 @@ export async function analyzeSolana(ctx: Ctx) {
         const unlimited = amt >= U64_HALF;
         ctx.act(`Approve ${short(delegate)} as delegate for ${unlimited ? "UNLIMITED" : amt} of token account ${short(acc(0))}`);
         ctx.risk(unlimited ? `Entire balance of token account ${short(acc(0))}` : `${amt} base units of ${short(acc(0))}`);
+        ctx.expose({ kind: "spl-account", account: acc(0), amount: unlimited ? "all" : amt });
         ctx.add({ id: "spl_delegate", severity: unlimited ? "critical" : "high", title: unlimited ? "Unlimited token delegate" : "Adds a token delegate", detail: `${short(delegate)} can move ${unlimited ? "everything in" : "tokens from"} this account without asking you again. Swaps on Solana don't need delegates; drainers do.` });
         kinds.add("approve");
       } else if (op === 6) {
@@ -105,6 +109,7 @@ export async function analyzeSolana(ctx: Ctx) {
         ctx.act(`Change ${label} of ${short(acc(0))} to ${short(newAuth)}`);
         if (newAuth !== signer && (type === 2 || type === 3)) {
           ctx.risk(`Token account ${short(acc(0))} and everything in it`);
+          ctx.expose({ kind: "spl-account", account: acc(0), amount: "all" });
           ctx.add({ id: "set_authority", severity: "critical", title: type === 2 ? "Transfers ownership of your token account" : "Gives away close authority", detail: `SetAuthority makes ${short(newAuth)} the ${label}. No transfer appears in your history, yet the account is no longer yours. A favourite of Solana drainers precisely because it looks like nothing happened.` });
           kinds.add("delegate");
         }

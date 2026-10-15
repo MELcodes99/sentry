@@ -45,6 +45,8 @@ export interface Report {
   summary: string;
   action: string; // plain-English decode of what signing does
   at_risk: string[];
+  value_at_risk_usd: number | null; // signer's real balance in play, priced in USD (null if unknown)
+  value_items: { label: string; amount: string; usd: number }[];
   findings: Finding[];
   chain?: string;
   from?: string;

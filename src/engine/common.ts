@@ -3,12 +3,21 @@ import { short } from "../known.js";
 
 export const UNLIMITED = 2n ** 100n; // anything this large is effectively "everything you own"
 
+/** Something of value this signature puts in play. Priced later in value.ts. */
+export type Exposure =
+  | { kind: "evm-token"; chainId: number; token: string; owner?: string; amount: bigint | "all" }
+  | { kind: "evm-native"; chainId: number; owner?: string; amount: bigint | "all" }
+  | { kind: "sol"; owner: string; lamports: bigint | "all" }
+  | { kind: "spl-account"; account: string; amount: bigint | "all" };
+
 /** Collects findings plus the plain-English description of the action. */
 export class Ctx {
   findings: Finding[] = [];
   actions: string[] = [];
   atRisk: string[] = [];
+  exposures: Exposure[] = [];
   constructor(public req: CheckRequest) {}
+  expose(e: Exposure) { this.exposures.push(e); }
   add(f: Finding) {
     f.detail = f.detail.charAt(0).toUpperCase() + f.detail.slice(1);
     if (!this.findings.some((x) => x.id === f.id && x.detail === f.detail)) this.findings.push(f);

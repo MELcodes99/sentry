@@ -2,7 +2,9 @@ import { decodeFunctionData, parseAbi, isAddress, hexToString, isHex, type Hex }
 import { Ctx, UNLIMITED, checkExpectation, checkRecipient } from "./common.js";
 import { KNOWN_7702, evmName, short, tokenLabel } from "../known.js";
 
-const RPC: Record<number, string> = {
+const USDC: Record<number, string> = { 1: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", 8453: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913" };
+
+export const RPC: Record<number, string> = {
   1: "https://ethereum-rpc.publicnode.com",
   8453: "https://mainnet.base.org",
   10: "https://mainnet.optimism.io",
@@ -46,8 +48,9 @@ function chainIdOf(ctx: Ctx, fallback?: unknown): number | undefined {
 
 const fmtAmt = (v: bigint) => (v >= UNLIMITED ? "UNLIMITED" : v.toString());
 
-async function judgeSpender(ctx: Ctx, chainId: number | undefined, spender: string, amount: bigint | "all", what: string, gasless: boolean) {
+async function judgeSpender(ctx: Ctx, chainId: number | undefined, spender: string, amount: bigint | "all", what: string, gasless: boolean, token?: string, owner?: string) {
   if (amount === 0n) { ctx.act("(this sets the allowance to zero, which revokes access)"); return; }
+  if (token && chainId && isAddress(token)) ctx.expose({ kind: "evm-token", chainId, token, owner: owner ?? ctx.req.from, amount: amount === "all" ? "all" : amount >= UNLIMITED ? "all" : amount });
   const name = evmName(spender);
   const unlimited = amount === "all" || amount >= UNLIMITED;
   const who = name ? `${name} (${short(spender)})` : `unrecognized address ${short(spender)}`;
@@ -110,7 +113,7 @@ async function tx(ctx: Ctx, t: any) {
   }
   if (!data || data === "0x") {
     ctx.act(`Send ${value} wei of the native token to ${evmName(to) ?? short(to)}`);
-    if (value > 0n) ctx.risk(`${value} wei of native token`);
+    if (value > 0n) { ctx.risk(`${value} wei of native token`); if (chainId) ctx.expose({ kind: "evm-native", chainId, owner: ctx.req.from, amount: value }); }
     checkRecipient(ctx, to);
     checkExpectation(ctx, "transfer", value);
     return;
@@ -124,7 +127,7 @@ async function tx(ctx: Ctx, t: any) {
     const name = evmName(to);
     ctx.act(`Call ${name ?? `unrecognized contract ${short(to)}`} (selector ${data.slice(0, 10)})${value ? ` sending ${value} wei` : ""}`);
     if (!name) ctx.add({ id: "unknown_contract", severity: "low", title: "Unrecognized contract", detail: `Sentry can't identify ${short(to)}. Not dangerous by itself, but there is no reputation to lean on.` });
-    if (value > 0n) { ctx.risk(`${value} wei of native token`); checkExpectation(ctx, "swap", value); }
+    if (value > 0n) { ctx.risk(`${value} wei of native token`); if (chainId) ctx.expose({ kind: "evm-native", chainId, owner: ctx.req.from, amount: value }); checkExpectation(ctx, "swap", value); }
     else checkExpectation(ctx, "swap");
     return;
   }
@@ -134,16 +137,16 @@ async function tx(ctx: Ctx, t: any) {
     case "approve":
       if (decoded.args.length === 4) { // Permit2 allowance
         ctx.act(`Permit2: let ${evmName(a1) ?? short(a1)} spend ${fmtAmt(BigInt(a2))} of ${tokenLabel(a0)}`);
-        await judgeSpender(ctx, chainId, a1, BigInt(a2), tokenLabel(a0), false);
+        await judgeSpender(ctx, chainId, a1, BigInt(a2), tokenLabel(a0), false, a0);
       } else {
         ctx.act(`Approve ${evmName(a0) ?? short(a0)} to spend ${fmtAmt(BigInt(a1))} of ${token}`);
-        await judgeSpender(ctx, chainId, a0, BigInt(a1), token, false);
+        await judgeSpender(ctx, chainId, a0, BigInt(a1), token, false, to);
       }
       checkExpectation(ctx, "approve");
       return;
     case "increaseAllowance":
       ctx.act(`Increase ${evmName(a0) ?? short(a0)}'s allowance on ${token} by ${fmtAmt(BigInt(a1))}`);
-      await judgeSpender(ctx, chainId, a0, BigInt(a1), token, false);
+      await judgeSpender(ctx, chainId, a0, BigInt(a1), token, false, to);
       checkExpectation(ctx, "approve");
       return;
     case "setApprovalForAll":
@@ -156,6 +159,7 @@ async function tx(ctx: Ctx, t: any) {
     case "transfer":
       ctx.act(`Transfer ${a1} units of ${token} to ${short(a0)}`);
       ctx.risk(`${a1} units of ${token}`);
+      if (chainId) ctx.expose({ kind: "evm-token", chainId, token: to, owner: ctx.req.from, amount: BigInt(a1) });
       checkRecipient(ctx, a0);
       checkExpectation(ctx, "transfer");
       return;
@@ -186,7 +190,7 @@ async function typed(ctx: Ctx, td: any) {
     const spender = m.spender;
     const amount = m.allowed === true ? UNLIMITED : BigInt(m.value ?? 0);
     ctx.act(`Gasless permit: let ${evmName(spender) ?? short(spender)} spend ${fmtAmt(amount)} of ${tokenName}`);
-    await judgeSpender(ctx, chainId, spender, amount, tokenName, true);
+    await judgeSpender(ctx, chainId, spender, amount, tokenName, true, d.verifyingContract, m.owner);
     longLived();
     checkExpectation(ctx, "approve");
     return;
@@ -195,7 +199,7 @@ async function typed(ctx: Ctx, td: any) {
     const items = pt === "PermitSingle" ? [m.details] : (m.details ?? []);
     for (const it of items) {
       ctx.act(`Permit2 signature: let ${evmName(m.spender) ?? short(m.spender)} spend ${fmtAmt(BigInt(it?.amount ?? 0))} of ${short(String(it?.token))}`);
-      await judgeSpender(ctx, chainId, m.spender, BigInt(it?.amount ?? 0), tokenLabel(String(it?.token)), true);
+      await judgeSpender(ctx, chainId, m.spender, BigInt(it?.amount ?? 0), tokenLabel(String(it?.token)), true, it?.token);
     }
     longLived();
     checkExpectation(ctx, "approve");
@@ -205,7 +209,7 @@ async function typed(ctx: Ctx, td: any) {
     const perms = Array.isArray(m.permitted) ? m.permitted : [m.permitted];
     for (const p of perms) {
       ctx.act(`Permit2 signature transfer: ${evmName(m.spender) ?? short(m.spender)} can pull ${fmtAmt(BigInt(p?.amount ?? 0))} of ${short(String(p?.token))} directly`);
-      await judgeSpender(ctx, chainId, m.spender, BigInt(p?.amount ?? 0), tokenLabel(String(p?.token)), true);
+      await judgeSpender(ctx, chainId, m.spender, BigInt(p?.amount ?? 0), tokenLabel(String(p?.token)), true, p?.token);
     }
     ctx.add({ id: "signature_transfer", severity: evmName(m.spender) ? "low" : "high", title: "Signature moves tokens directly", detail: "This isn't an allowance. Whoever holds this signature can pull the tokens in one step." });
     checkExpectation(ctx, "transfer");
@@ -227,7 +231,7 @@ async function typed(ctx: Ctx, td: any) {
   ctx.act(`Sign typed data "${pt || "unknown"}" for ${d.name ?? "an unnamed app"}`);
   const spender = m.spender ?? m.operator ?? m.delegate;
   if (spender && isAddress(spender)) {
-    await judgeSpender(ctx, chainId, spender, BigInt(m.value ?? m.amount ?? 0) || UNLIMITED, tokenName, true);
+    await judgeSpender(ctx, chainId, spender, BigInt(m.value ?? m.amount ?? 0) || UNLIMITED, tokenName, true, d.verifyingContract, m.owner);
   } else {
     ctx.add({ id: "unknown_typed_data", severity: "low", title: "Unfamiliar signature type", detail: `Sentry doesn't have a decoder for "${pt}". Review the fields before signing.` });
   }
@@ -241,6 +245,11 @@ async function delegation(ctx: Ctx, a: any) {
   const known = KNOWN_7702[target];
   ctx.act(`EIP-7702: turn your account into ${known ?? `the unverified contract ${short(target)}`}${chainId === 0 ? " on EVERY chain" : ""}`);
   ctx.risk("Every asset in this account, on every chain this applies to");
+  const cid = chainId || chainIdOf(ctx) || 0;
+  if (cid) {
+    ctx.expose({ kind: "evm-native", chainId: cid, owner: ctx.req.from, amount: "all" });
+    const usdc = USDC[cid]; if (usdc) ctx.expose({ kind: "evm-token", chainId: cid, token: usdc, owner: ctx.req.from, amount: "all" });
+  }
   if (!known) {
     ctx.add({
       id: "unknown_7702", severity: "critical",

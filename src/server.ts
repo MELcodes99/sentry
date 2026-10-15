@@ -58,12 +58,28 @@ app.post("/check", async (c) => {
 
 // Free playground endpoint, rate-limited per IP.
 const hits = new Map<string, number[]>();
-app.post("/api/try", async (c) => {
+function limited(c: any) {
   const ip = c.req.header("x-forwarded-for")?.split(",")[0].trim() ?? "local";
   const now = Date.now();
   const recent = (hits.get(ip) ?? []).filter((t) => now - t < 60_000);
-  if (recent.length >= 20) return c.json({ error: "Slow down: 20 checks a minute on the playground. Agents use /check." }, 429);
+  if (recent.length >= 20) return true;
   hits.set(ip, [...recent, now]);
+  return false;
+}
+const wallets = (c: any) => {
+  const evm = c.req.query("evm"), sol = c.req.query("sol");
+  return { evm: evm && /^0x[0-9a-fA-F]{40}$/.test(evm) ? evm : undefined, sol: sol && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(sol) ? sol : undefined };
+};
+// Shareable demo links: /demo/airdrop-permit?evm=0x... runs that attack against a real wallet.
+app.get("/demo/:key", async (c) => {
+  if (limited(c)) return c.text("Slow down: 20 checks a minute.", 429);
+  let ex; try { ex = examples(wallets(c)).find((e) => e.key === c.req.param("key")); } catch { ex = undefined; }
+  if (!ex) return c.html(notFound(), 404);
+  const out = await runCheck(ex.req);
+  return "error" in out ? c.json(out, 400) : c.redirect(`/r/${out.id}`);
+});
+app.post("/api/try", async (c) => {
+  if (limited(c)) return c.json({ error: "Slow down: 20 checks a minute on the playground. Agents use /check." }, 429);
   const out = await runCheck(await c.req.json().catch(() => null));
   return "error" in out ? c.json(out, 400) : c.json(out);
 });
@@ -77,7 +93,7 @@ app.get("/r/:id", (c) => {
   const r = load(c.req.param("id"));
   return r ? c.html(verdictPage(r, BASE)) : c.html(notFound(), 404);
 });
-app.get("/api/examples", (c) => c.json(examples()));
+app.get("/api/examples", (c) => { try { return c.json(examples(wallets(c))); } catch { return c.json({ error: "Invalid address" }, 400); } });
 app.get("/health", (c) => c.json({ ok: true, engine: ENGINE, paid, ...stats() }));
 app.get("/llms.txt", (c) => c.text(`# Sentry
 > Pre-sign security for AI agent wallets. Call before every signature.

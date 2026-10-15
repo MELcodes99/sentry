@@ -4,8 +4,9 @@ import type { CheckRequest, Report, Severity, Verdict } from "../types.js";
 import { Ctx } from "./common.js";
 import { analyzeEvm } from "./evm.js";
 import { analyzeSolana } from "./solana.js";
+import { priceExposures } from "./value.js";
 
-export const ENGINE = "sentry-1.0";
+export const ENGINE = "sentry-1.1";
 
 const intentSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("message"), message: z.string() }),
@@ -32,7 +33,7 @@ export const checkSchema = z.object({
 
 const WEIGHT: Record<Severity, number> = { critical: 95, high: 75, medium: 45, low: 15, info: 0 };
 
-export async function check(req: CheckRequest): Promise<Report> {
+export async function check(req: CheckRequest, opts: { price?: boolean } = {}): Promise<Report> {
   const ctx = new Ctx(req);
   const op = req.intent.op;
   if (op === "solanaMessage" || op === "solanaTransaction") await analyzeSolana(ctx);
@@ -50,18 +51,21 @@ export async function check(req: CheckRequest): Promise<Report> {
     top && top.severity === "medium" ? "WARN" : "ALLOW";
 
   const action = ctx.actions.join("; ") || "Unknown action";
+  const valued = verdict !== "ALLOW" && opts.price !== false ? await priceExposures(ctx.exposures) : { total: null, items: [] };
+  const money = valued.total !== null && valued.total > 0 ? `$${valued.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : null;
   const headline =
     verdict === "BLOCK" ? top!.title :
     verdict === "WARN" ? `Proceed with care: ${top!.title.toLowerCase()}` :
     "Looks safe to sign";
   const summary =
-    verdict === "BLOCK" ? `Do not sign. ${top!.detail}` :
+    verdict === "BLOCK" ? `Do not sign.${money ? ` This puts ${money} of your funds at risk.` : ""} ${top!.detail}` :
     verdict === "WARN" ? `${top!.detail} Ask the user before signing.` :
     `Sentry found nothing dangerous. Signing will: ${action}.`;
 
   return {
     id: nanoid(10), verdict, risk_score, headline, summary, action,
     at_risk: verdict === "ALLOW" ? [] : ctx.atRisk,
+    value_at_risk_usd: valued.total, value_items: valued.items,
     findings: ctx.findings,
     chain: req.chain, from: req.from, op,
     created_at: new Date().toISOString(), engine: ENGINE,
